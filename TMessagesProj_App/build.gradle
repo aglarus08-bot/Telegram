@@ -25,7 +25,7 @@ android {
     compileSdkVersion 36
     buildToolsVersion '36.0.0'
 
-    defaultConfig.applicationId = com.vg123.messenger
+    defaultConfig.applicationId = "com.vg123.messenger"
 
 
     lintOptions {
