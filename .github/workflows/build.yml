@@ -1,7 +1,11 @@
-name: Build APK
+
+name: Build VegaGram APK
 
 on:
-  workflow_dispatch:   # запуск кнопкой "Run workflow" во вкладке Actions
+  push:
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   build:
@@ -9,44 +13,59 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Скачать код (вместе с подмодулями)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Поставить SDK, NDK и CMake
+      - name: Install Android SDK packages
+        shell: bash
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" \
-            "ndk;27.2.12479018" "cmake;3.22.1"
+          set -euo pipefail
 
-      - name: Подогнать google-services.json под ваш applicationId
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found"
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+
+      - name: Configure Google Services
+        shell: bash
         run: |
-          APP_ID="com.vg123.messenger"   # тот же, что в rebrand.py
+          APP_ID="com.vg123.messenger"
+
           find . -name google-services.json -not -path "*/build/*" \
             -exec sed -i "s/org\.telegram\.messenger/${APP_ID}/g" {} +
 
-      - name: Собрать APK
+      - name: Build VegaGram APK
         env:
           GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false"
         run: |
           chmod +x ./gradlew
           ./gradlew :TMessagesProj_App:assembleAfatRelease --stacktrace
 
-      - name: Сохранить APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: messenger-apk
+          name: VegaGram-APK
           path: |
             TMessagesProj_App/build/outputs/apk/**/*.apk
             **/build/outputs/apk/**/*.apk
           if-no-files-found: error
+          retention-days: 7
+          
